@@ -37,7 +37,7 @@ public class Ut {
             return jwt;
         }
 
-        public static boolean isValidToken(SecretKey secretKey, String token){
+        public static boolean isValidToken(SecretKey secretKey, String token) {
             try {
                 Jwts
                         .parser()
@@ -49,6 +49,15 @@ public class Ut {
             } catch (Exception e) {
                 return false;
             }
+        }
+
+        public static Map<String, Object> getPayload(SecretKey secretKey, String jwtStr) {
+            return (Map<String, Object>) Jwts
+                    .parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parse(jwtStr)
+                    .getPayload();
         }
     }
 }
