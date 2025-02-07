@@ -30,8 +30,8 @@ public class Ut {
 
             String jwt = Jwts.builder()
                     .setClaims(claims)
-                    .setIssuedAt(issuedAt)
-                    .setExpiration(expiration)
+//                    .setIssuedAt(issuedAt)
+//                    .setExpiration(expiration)
                     .signWith(secretKey, SignatureAlgorithm.HS256)
                     .compact();
             return jwt;
