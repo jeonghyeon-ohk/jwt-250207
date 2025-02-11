@@ -1,7 +1,6 @@
 package com.example.jwt.domain.post.post.controller;
 
 import com.example.jwt.domain.member.member.entity.Member;
-import com.example.jwt.domain.member.member.service.MemberService;
 import com.example.jwt.domain.post.post.dto.PageDto;
 import com.example.jwt.domain.post.post.dto.PostWithContentDto;
 import com.example.jwt.domain.post.post.entity.Post;
@@ -23,7 +22,30 @@ public class ApiV1PostController {
 
     private final PostService postService;
     private final Rq rq;
-    private final MemberService memberService;
+
+
+    record StatisticsResBody(long postCount, long postPublishedCount, long postListedCount) {
+    }
+
+    @GetMapping("/statistics")
+    public RsData<StatisticsResBody> getStatistics() {
+
+        Member actor = rq.getActor();
+
+        if(!actor.isAdmin()) {
+            throw new ServiceException("403-1", "접근 권한이 없습니다.");
+        }
+
+        return new RsData<>(
+                "200-1",
+                "통계 조회가 완료되었습니다.",
+                new StatisticsResBody(
+                        10,
+                        10,
+                        10
+                )
+        );
+    }
 
     @GetMapping
     @Transactional(readOnly = true)
@@ -92,7 +114,6 @@ public class ApiV1PostController {
     public RsData<PostWithContentDto> write(@RequestBody @Valid WriteReqBody reqBody) {
 
         Member actor = rq.getActor();
-
         Post post = postService.write(actor, reqBody.title(), reqBody.content(), reqBody.published(), reqBody.listed());
 
         return new RsData<>(
@@ -109,13 +130,14 @@ public class ApiV1PostController {
     @Transactional
     public RsData<PostWithContentDto> modify(@PathVariable long id, @RequestBody @Valid ModifyReqBody reqBody) {
 
-        Member actor = rq.getActor();
+        Member actor = rq.getActor(); // 야매
 
         Post post = postService.getItem(id).orElseThrow(
                 () -> new ServiceException("404-1", "존재하지 않는 글입니다.")
         );
 
         post.canModify(actor);
+
         postService.modify(post, reqBody.title(), reqBody.content());
 
         return new RsData<>(
