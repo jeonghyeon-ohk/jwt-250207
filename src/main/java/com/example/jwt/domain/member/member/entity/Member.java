@@ -39,7 +39,6 @@ public class Member extends BaseTime {
         return username.equals("admin");
     }
 
-
     public Collection<? extends GrantedAuthority> getAuthorities() {
 
         return getMemberAuthoritesAsString()
@@ -53,10 +52,11 @@ public class Member extends BaseTime {
 
         List<String> authorities = new ArrayList<>();
 
-        if (isAdmin()) {
+        if(isAdmin()) {
             authorities.add("ROLE_ADMIN");
         }
 
         return authorities;
     }
+
 }

@@ -60,12 +60,13 @@ public class MemberService {
 
         return Optional.of(
                 Member.builder()
-                        .id(id)
-                        .username(username)
-                        .build()
+                .id(id)
+                .username(username)
+                .build()
         );
+    }
 
-//        return memberRepository.findById(id);
-
+    public String genAccessToken(Member member) {
+        return authTokenService.genAccessToken(member);
     }
 }

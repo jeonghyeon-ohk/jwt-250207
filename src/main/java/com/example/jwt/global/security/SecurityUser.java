@@ -15,6 +15,4 @@ public class SecurityUser extends User {
         super(username, password, authorities);
         this.id = id;
     }
-
-
 }
