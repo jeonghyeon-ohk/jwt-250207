@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -21,59 +22,95 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
     private final Rq rq;
     private final MemberService memberService;
 
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-
-        String authorizationHeader = request.getHeader("Authorization");
+    private boolean isAuthorizationHeader() {
+        String authorizationHeader = rq.getHeader("Authorization");
 
         if (authorizationHeader == null) {
-            filterChain.doFilter(request, response);
-            return;
+            return false;
         }
 
-        if(!authorizationHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
+        return authorizationHeader.startsWith("Bearer ");
+    }
+
+    record AuthToken(String apiKey, String accessToken) {
+    }
+
+    private AuthToken getAuthTokenFromRequest() {
+
+        if (isAuthorizationHeader()) {
+
+            String authorizationHeader = rq.getHeader("Authorization");
+            String authToken = authorizationHeader.substring("Bearer ".length());
+
+            String[] tokenBits = authToken.split(" ", 2);
+
+            if (tokenBits.length < 2) {
+                return null;
+            }
+
+            return new AuthToken(tokenBits[0], tokenBits[1]);
         }
 
-        String authToken = authorizationHeader.substring("Bearer ".length());
+        String accessToken = rq.getValueFromCookie("accessToken");
+        String apiKey = rq.getValueFromCookie("apiKey");
 
-        String[] tokenBits = authToken.split(" ", 2);
-
-        if(tokenBits.length < 2) {
-            filterChain.doFilter(request, response);
-            return;
+        if (accessToken == null || apiKey == null) {
+            return null;
         }
 
-        String apiKey = tokenBits[0];
-        String accessToken = tokenBits[1];
+        return new AuthToken(apiKey, accessToken);
+
+    }
+
+    private Member getMemberByAccessToken(String accessToken, String apiKey) {
 
         Optional<Member> opAccMember = memberService.getMemberByAccessToken(accessToken);
 
-        if(opAccMember.isEmpty()) {
+        if (opAccMember.isPresent()) {
+            return opAccMember.get();
+        }
 
-            // 재발급
-            Optional<Member> opApiMember = memberService.findByApiKey(apiKey);
+        Optional<Member> opRefMember = memberService.findByApiKey(apiKey);
 
-            if(opApiMember.isEmpty()) {
-                filterChain.doFilter(request, response);
-                return;
-            }
+        if(opRefMember.isEmpty()) {
+            return null;
+        }
 
-            String newAuthToken = memberService.getAuthToken(opApiMember.get());
-            response.addHeader("Authorization", "Bearer " + newAuthToken);
+        String newAccessToken = memberService.genAccessToken(opRefMember.get());
+        rq.addCookie("accessToken", newAccessToken);
+        rq.addCookie("apiKey", apiKey);
 
+        return opRefMember.get();
+    }
 
-            Member actor = opApiMember.get();
-            rq.setLogin(actor);
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
+        String url = request.getRequestURI();
+
+        if(List.of("/api/v1/members/login", "/api/v1/members/join", "/api/*/members/logout").contains(url)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        Member actor = opAccMember.get();
-        rq.setLogin(actor);
+        AuthToken tokens = getAuthTokenFromRequest();
 
+        if (tokens == null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String apiKey = tokens.apiKey;
+        String accessToken = tokens.accessToken;
+
+        Member actor = getMemberByAccessToken(accessToken, apiKey);
+
+        if (actor == null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        rq.setLogin(actor);
         filterChain.doFilter(request, response);
     }
 }
